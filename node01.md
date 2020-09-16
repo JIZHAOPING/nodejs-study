@@ -34,3 +34,5 @@ console.log('Server running at http://127.0.0.1:8080/')
     }
 ```
 
+##module.exports
+当使用module.exports导出函数时，注意在源文件里只要require了，那么就可以直接调用。
