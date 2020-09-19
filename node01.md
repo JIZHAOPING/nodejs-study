@@ -34,5 +34,42 @@ console.log('Server running at http://127.0.0.1:8080/')
     }
 ```
 
-##module.exports
-当使用module.exports导出函数时，注意在源文件里只要require了，那么就可以直接调用。
+## module.exports
+> 当使用module.exports导出函数时，注意在源文件里只要require了，那么就可以直接调用。
+如果你写的导出函数里面还有函数，当你用aa去调用是不行的
+> **需求**：main.js调用a.js里函数里的函数
+```javascript
+//a.js
+var aa = function(){
+  console.log("调用成功了");
+  function bb(){
+    console.log("又调用成功了");
+  }
+  bb();//只能用这种方法使bb()执行
+}
+module.exports = aa;
+
+//main.js
+var aaa = require("./a");
+aaa();//因为module.exports返回的是模块对象本身
+
+//调用成功了
+//又调用成功了
+```
+> exports
+exports是module.exports的一个引用，exports指向的是module.exports
+```javascript
+//a.js
+var aa = function(){
+  console.log("我出来了！");
+  function bb(){
+    console.log("我也出来了！");
+  }
+}
+//main.js
+var aaa = require('./a');
+aaa.aa();
+
+//我出来了！
+//我也出来了！
+```
