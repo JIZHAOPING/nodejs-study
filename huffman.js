@@ -122,6 +122,13 @@ function hfm(data){
       hfmTree:hfmTree
     }
   }
+  function GenHfmTree(){
+    var s1 =3;
+    Select();
+  }
+  function Select(){
+    console.log(GenHfmTree.s1);
+  }
   function compress(data){
     //console.log(data);
     console.log("纪朝霞，我叫你一声你敢答应吗？！");
@@ -130,6 +137,7 @@ function hfm(data){
     infoSrcAnaLyze(data);
     if(scaledFreq()) scaledInfoSrcAnalyze();
     initHfmTree();
+    GenHfmTree();
 
   }
   compress(data);

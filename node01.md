@@ -73,3 +73,81 @@ aaa.aa();
 //我出来了！
 //我也出来了！
 ```
+
+## js的原型继承
+> 需求：写两个函数，一个主函数一个子函数，他们有公用的变量，于是我想起了在我记忆里尘封已久的**继承**
+> 前导知识：
++ js对象是若干无序属性的集合（数据属性、访问器属性、内部属性）
++ 生成对象的3种方式：字面量直接生成、Object工厂方法、构造函数实例化对象
+```javascript
+//1.字面量直接生成
+var obj = {
+  num:10,
+  show:function(){}
+} 
+//2.Objext工厂方法
+var newobj = Object.create(obj);
+newobj.age = 23;//自有属性
+//3.构造函数实例化对象
+function Person(name,age){
+  this.name = name;
+  this.age  = age;
+}
+Person.prototype.sayName = function(){
+  console.log(this.name,this.age);
+}
+var p = new Person("Mike","12");
+p.sayName();
+```
+> 属性访问链（自有属性和继承属性）
+```javascript
+var proObj = {
+  z:3
+}
+var obj = Object.create(proObj);
+obj.x=1;
+obj.y=2;
+
+/*obj{x=1,y=2}-->proObj{z=3}-->Object.prototype-->null  [可用__proto__来访问上一级]*/
+
+obj.z=5;
+obj.hasOwnProperty('z');//true
+obj.z;//5
+proObj.z;//还是3
+
+delete obj.z;
+obj.z;//变回3
+
+//删除原型链上的属性
+delete obj.__proyo__.z;
+obj.z;//undefined
+```
+
+> 基于构造函数实现的原型继承
+```javascript
+function Person(){
+  this.name=name;
+  this.age =age;
+}
+Person.prototype.sayHi=function(){
+  console.log("Hi,i'm"+this.name);
+}
+var p1=new Person(20,"jack");
+```
+![img](./yuanxing.jpg)
+
++ 属性操作
+```javascript
+function MyObj(){}
+MyObj.prototype.z=3;
+var obj=new MyObj();
+obj.x=1;
+obj.y=2;
+obj.z;//3
+obj.z=5;
+obj.hasOwnProperty('z');//true
+obj.z;//5
+MyObj.prototype.z;//3
+delete obj.z;
+obj.z;//3
+```
