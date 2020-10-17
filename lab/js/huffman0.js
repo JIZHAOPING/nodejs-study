@@ -149,7 +149,7 @@ let huffman = (function() {
   
       return(scaled = true);
     }
-  
+    
     function printScaleFreq() {
       let num = 0;
       let total = 0;
