@@ -267,63 +267,130 @@ let huffman = (function(){
 
 // 目的：利用信源符号对应的码字，对信源文件重新编码，实现
 // 		 压缩。
+//压缩文件由两部分组成：文件头、编码主体。其中文件头信息由三部分组成：HFM标识符、FLAG字段和频率表
 
     function WriteHfmFile()
     {
-	    var ch = 0;
-	    var  i, len = 0;
-	    var buf = 0x00;
-        const mask = 0x80;
-        
-        
-        // var fso = new ActiveXObject("Scripting.FileSystemObject");
-        // var a = fso.CreateTextFile("f:\\毕业设计\\新建文件夹(3)\\text0.txt", true);        
-        // a.WriteLine("This is a test.");
-        // a.Close();    
-
-        
-	// if((fpDst=fopen(dstFile, "w+b")) == NULL)
-	// {
-	// 	fclose(fpSrc);
-	// 	Error("%s 文件创建失败！\n", dstFile);
-	// }
-
-	// WriteHfmFileHead(fpDst);
-
-	// while((ch=fgetc(fpSrc)) != EOF)			// 写压缩文件编码主体
-	// {
-	// 	for(i=0; HfmCode[ch][i] != EOS; i++)
-	// 	{
-	// 		if(HfmCode[ch][i] == '1')	buf |= mask >> len;
-
-	// 		if(len == (CHAR_BIT - 1))
-	// 		{
-	// 			fputc(buf, fpDst);
-	// 			len = -1;
-	// 			buf = 0x00;
-	// 		}
-
-	// 		len++;
-	// 	}
-	// }
+        var content='';
+        var str = '';   
 	
-	// _ASSERT(len != -1);
+        for(i = 0;i<SNUM_MAX;i++){
+            if(hfmCode[i]=='') continue;
+            str = parseInt(hfmCode[i],2);
+            str = str.toString(16);
+            content += str;
+            // console.log(content);
+        }
 
-	// if(len != 0)	// buf没有填充完毕，写压缩文件的最后一个字节
-	// {
-	// 	fputc(buf, fpDst);
-	// 	fseek(fpDst, strlen(HFM_FILE_TOKEN), SEEK_SET);
-	// 	buf = fgetc(fpDst) + len;
-	// 	fseek(fpDst, strlen(HFM_FILE_TOKEN), SEEK_SET);
-	// 	fputc(buf, fpDst);
-	// 	fseek(fpDst, 0, SEEK_END);
-	// }
+        var blob = new Blob([content], {type: "text/plain;charset=utf-8"});
+        saveAs(blob, "file.txt");//saveAs(blob,filename)
+    }
 
 
-	// fclose(fpSrc);
-	// fclose(fpDst);
-}
 
+    /*------------------------------------------------------------
+    目的：	判断频次表是否适合用行程方式压缩。
+    输入：
+		    无
+    输出：
+		    int			是否适合
+		    <>0			适合，行程段的数量
+		    ==0			不适合
+    -----------------------------------------------------------*/
+    function SuitRunLen()
+    {
+	    var	i;
+	    var	secNum			 = 0;		// 行程段的数量
+	    var	totalLen		 = 0;		// 行程段中频次的总数量
+	    var	SPAN			 = new Array();	// 行程段与段之间的间隙
+	    var	strFrq           = new Array(SNUM_MAX+1);		// 频次字符串
+	    var	p1 = NULL, p2  = NULL;	// 操作频次字符串的指针
+
+	    // 初始化频次字符串
+	    for(i=0; i<SNUM_MAX; i++)	strFrq[i] = (freq[i]==0) ? '0':'1';
+
+        // #ifdef _DEBUG    
+        // 	printf("频次表的行程分析：\nstart\tlen\tfreq\n");
+        // 	printf("---------------------------------------------");
+        // #endif
+
+	    // p1 = strstr(strFrq, "1");//返回strFrq数组中1第一次出现的位置
+	    while((p2 = strstr(p1, SPAN)) != NULL)//strFrq中000是否出现
+	    {
+		    secNum++;//行程段的数量
+		    totalLen += p2 - p1;//行程段中频次的总数量
+
+        // #ifdef _DEBUG
+		//         printf("\n%0.2X\t%d    ", p1-strFrq, p2-p1);
+		//         while(p1<p2)	printf("%5d", frequence[(p1++)-strFrq]);
+        // #endif
+		
+		    if((p1 = strstr(p2, "1")) == NULL) break;//如果p2中1没有出现，那就退出循环
+	    }
+	
+	    if(p1 != NULL)
+	    {
+		    if(p1 == '1')
+		    {
+			    secNum++;
+			    while((p1++) != EOS) totalLen++;
+		    }
+	    }
+
+        // #ifdef _DEBUG
+	    //     printf("\n---------------------------------------------\n");
+	    //     printf("行程段数：\t%d\n频次总数：\t%d", secNum, totalLen);
+        // #endif
+
+	    return(((totalLen + secNum * 2)< SNUM_MAX) ? secNum : 0);
+    }
+
+    /*------------------------------------------------------------
+    目的：	按行程方式存储频次表。
+    输入：
+		    FILE* fpDst		压缩文件的文件指针
+		    int   secNum	行程段的数量
+    输出：
+		    无
+    ------------------------------------------------------------*/
+    function SaveFrqRunLen(fpDst, secNum)
+    {
+	    var	i;
+	    var	SPAN   = "000";	// 行程段与段之间的间隙
+	    var	strFrq = new Array(SNUM_MAX+1);		// 频次字符串
+	    var	p1 = NULL, p2  = NULL;	// 操作频次字符串的指针
+
+	    // 初始化频次字符串
+	    for(i=0; i<SNUM_MAX; i++)	strFrq[i] = (freq[i]==0) ? '0':'1';
+
+	    p1 = strstr(strFrq, "1");
+	    fputc(secNum, fpDst);					// 保存行程段的数量
+	    while((p2 = strstr(p1, SPAN)) != NULL)
+	    {
+		    fputc(p1-strFrq, fpDst);			// 保存行程段的起始位置
+		    fputc(p2-p1, fpDst);				// 保存行程段的长度
+		
+		    // 保存行程段中的频次值
+		    while(p1<p2)	fputc(frequence[(p1++)-strFrq], fpDst);
+
+		    if((p1 = strstr(p2, "1")) == NULL)	break;
+	    }
+
+	    if(p1 != NULL)
+	    {
+		    if(p1 == '1')
+		    {
+			    fputc(p1-strFrq, fpDst);		// 保存行程段的起始位置
+			    // p2 = &strFrq[SNUM_MAX];
+			    fputc(p2-p1, fpDst);			// 保存行程段的长度
+
+			    while(p1 != EOS)
+			    {
+				    fputc(freq[(p1++)-strFrq], fpDst);
+			    }
+		    }
+	    }
+    }
 
     function compress(data,output){
         $output = output;
