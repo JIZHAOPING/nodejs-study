@@ -284,9 +284,14 @@ let huffman = (function(){
 
         var blob = new Blob([content], {type: "text/plain;charset=utf-8"});
         saveAs(blob, "file.txt");//saveAs(blob,filename)
+
+        WriteHfmHeadFile();
     }
 
 
+    function WriteHfmHeadFile(){
+        SuitRunLen();
+    }
 
     /*------------------------------------------------------------
     目的：	判断频次表是否适合用行程方式压缩。
@@ -300,49 +305,19 @@ let huffman = (function(){
     function SuitRunLen()
     {
 	    var	i;
-	    var	secNum			 = 0;		// 行程段的数量
-	    var	totalLen		 = 0;		// 行程段中频次的总数量
-	    var	SPAN			 = new Array();	// 行程段与段之间的间隙
-	    var	strFrq           = new Array(SNUM_MAX+1);		// 频次字符串
-	    var	p1 = NULL, p2  = NULL;	// 操作频次字符串的指针
+	    var	strFrq = new Array(SNUM_MAX+1);		// 频次字符串
+	    var	p1 = null;	// 操作频次字符串的指针
 
 	    // 初始化频次字符串
-	    for(i=0; i<SNUM_MAX; i++)	strFrq[i] = (freq[i]==0) ? '0':'1';
-
-        // #ifdef _DEBUG    
-        // 	printf("频次表的行程分析：\nstart\tlen\tfreq\n");
-        // 	printf("---------------------------------------------");
-        // #endif
-
-	    // p1 = strstr(strFrq, "1");//返回strFrq数组中1第一次出现的位置
-	    while((p2 = strstr(p1, SPAN)) != NULL)//strFrq中000是否出现
-	    {
-		    secNum++;//行程段的数量
-		    totalLen += p2 - p1;//行程段中频次的总数量
-
-        // #ifdef _DEBUG
-		//         printf("\n%0.2X\t%d    ", p1-strFrq, p2-p1);
-		//         while(p1<p2)	printf("%5d", frequence[(p1++)-strFrq]);
-        // #endif
-		
-		    if((p1 = strstr(p2, "1")) == NULL) break;//如果p2中1没有出现，那就退出循环
-	    }
-	
-	    if(p1 != NULL)
-	    {
-		    if(p1 == '1')
-		    {
-			    secNum++;
-			    while((p1++) != EOS) totalLen++;
-		    }
-	    }
-
-        // #ifdef _DEBUG
-	    //     printf("\n---------------------------------------------\n");
-	    //     printf("行程段数：\t%d\n频次总数：\t%d", secNum, totalLen);
-        // #endif
-
-	    return(((totalLen + secNum * 2)< SNUM_MAX) ? secNum : 0);
+        for(i=0; i<SNUM_MAX; i++)	strFrq[i] = (freq[i]==0) ? '0':'1';
+        
+        var index = 0;
+        for(let i = 0;i<strFrq.length&&index==0;i++){
+            if(strFrq[i]==1) index = i;
+        }
+        var p1 = strFrq.toString();
+        p1 = p1.replace(/,/g, "");
+        p1 = p1.substring(index);
     }
 
     /*------------------------------------------------------------
