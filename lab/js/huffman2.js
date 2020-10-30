@@ -208,7 +208,7 @@
     Huffman.prototype.GenHfmCode = function GenHfmCode(){
         let i,pos;
         let code = new Array(this.SNUM_MAX);
-        let pCode = code[0];
+        let pCode = code;
         let pHfmCode = null;
         let node = {l:0,r:0,p:0,w:0};
 

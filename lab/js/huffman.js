@@ -305,19 +305,40 @@ let huffman = (function(){
     function SuitRunLen()
     {
 	    var	i;
-	    var	strFrq = new Array(SNUM_MAX+1);		// 频次字符串
-	    var	p1 = null;	// 操作频次字符串的指针
+        var	strFrq = new Array(SNUM_MAX+1);		// 频次字符串
+        var SPAN   = '000';
+        var secNum = 0;
+        var totalLen = 0;
+        var	p1     = null;	// 操作频次字符串的指针
+        var p2     = null;
 
 	    // 初始化频次字符串
         for(i=0; i<SNUM_MAX; i++)	strFrq[i] = (freq[i]==0) ? '0':'1';
         
-        var index = 0;
+        var strFrq = strFrq.toString();//转换为字符串
+        var p1 = strstr(strFrq,'1');
+        console.log(p1);
+        var aa = strstr(strFrq,'2');
+        console.log(aa);
+        while((p2 = strstr(p1, SPAN)) != '')
+	    {
+		    secNum++;
+		    totalLen += p2 - p1;
+ 
+		    if((p1 = strstr(p2, '1')) == '') break;
+        } 
+        console.log(secNum);
+        
+
+    }
+
+    function strstr(strFrq,index){
         for(let i = 0;i<strFrq.length&&index==0;i++){
             if(strFrq[i]==1) index = i;
         }
-        var p1 = strFrq.toString();
-        p1 = p1.replace(/,/g, "");
-        p1 = p1.substring(index);
+        strFrq = strFrq.replace(/,/g, "");
+        strFrq = strFrq.substring(index);
+        return strFrq;
     }
 
     /*------------------------------------------------------------
