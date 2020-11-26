@@ -1,24 +1,32 @@
 let huffman = (function(){
-    const SNUM_MAX = 256,
-          NNUM_MAX = 512,
-          CHAR_BIT = 8,
-          LB10     = 3.321928095;
-    
-    let srcData = null,
-        n       = 0,
-        scaled  = false,
-        freq    = new Array(SNUM_MAX),
-        p       = new Array(SNUM_MAX),
-        miniFrq = new Array(SNUM_MAX),
-        miniP   = new Array(SNUM_MAX),
-        miniTFq = 0,
-        hfmTree = new Array(SNUM_MAX),
-        hfmCode = new Array(SNUM_MAX),
-        HEAD    = NNUM_MAX-1,
-        HFM_FILE_TOKEN = "Hfm",
-        map     = new Array(SNUM_MAX);
-    let $output;
+    const SNUM_MAX = 256,                 // 信源符号个数最多为 SNUM_MAX 个
+          NNUM_MAX = 512,                 // 树节点个数最多为 512 个
+          CHAR_BIT = 8,                   // 一个字节有 8 位
+          LB10     = 3.321928095,         // 以 2 为底 10 的对数
+          HEAD     = NNUM_MAX - 1,        // Huffman树头节点的位置
+          HFM_FILE_TOKEN = "Hfm";         // huffman 压缩文件的前三个字节标识
 
+    let srcData = null,                   // 源文件无符号字节数组
+        n       = 0,                      // 信源符号个数
+        scaled  = false,                  // 是否发生信源缩减
+        freq    = new Array(SNUM_MAX),    // 符号频次整型数组
+        p       = new Array(SNUM_MAX),    // 符号概率浮点数组
+        miniFrq = new Array(SNUM_MAX),    // 缩减后符号频次整型数组
+        miniP   = new Array(SNUM_MAX),    // 缩减后符号概率浮点数组
+        miniTFq = 0,                      // 缩减后符号频次总和
+        hfmTree = new Array(NNUM_MAX),    // Huffman 结点数组
+        hfmCode = new Array(SNUM_MAX);    // Huffman 码字字符串数组
+
+    let $output;                          // 用来打印输出的 DOM 对象
+
+    /**
+      * 初始化全局数据，包括：频次数组、概率数组、Huffman树
+      * 的节点数组以及码字数组
+      *
+      * @param obj {object} 初始化数据
+      *
+      * @returns 无
+      */
     function initData(data) {
         srcData = data;     // 信源文件的字节数组
         for(let i=0; i<SNUM_MAX; i++)  {
@@ -29,13 +37,24 @@ let huffman = (function(){
           hfmCode[i] = '';
         }
         for(let i=0; i<NNUM_MAX; i++) hfmTree[i] = { l: 0, r: 0, p: 0, w: 0 };
-      }
+    }
+
+    /**
+      * 统计信源文件中每个符号出现的频次
+      *
+      * @returns 无
+      */
     function statFreq(){
         for(let i=0;i<srcData.length;i++){
             freq[srcData[i]]++;
         }
         printFreq();
     }
+    /**
+      * 信源文件分析——计算信源文件每个符号的概率
+      *
+      * @returns 无
+      */
     function infoSrcAnalyze(){
         let total = srcData.length;
 
@@ -46,6 +65,11 @@ let huffman = (function(){
         }
         printInfoSrcSum();
     }
+    /**
+      * 计算压缩文件头部存储频次表等信息的开销
+      *
+      * @return inti 以字节为单位的开销大小
+      */
     function storeCost() {
         let freqNew = freq.map(f => f === 0 ? 'x' : 1);
         let str = freqNew.join('');
@@ -56,6 +80,16 @@ let huffman = (function(){
         printf(`文件头部存储开销：${size} 字节\n\n`);
         return(size);
     }
+    /**
+      * 将信源文件打包。因为对信源文件的压缩不足以抵消存储
+      * 频次表的开销，因此不压缩信源文件，仅仅将其封装。即
+      * 仅仅加上Huffman文件头标识符，其他部分与信源文件的每
+      * 个字节都完全相同。
+      *
+      * @param 无
+      *
+      * @returns 无
+      */
     function wrapSrcFile(){
         const flag = 0x80;    // 最高位为1，代表信源文件没有被压缩
     
@@ -72,6 +106,13 @@ let huffman = (function(){
         var blob = new Blob([data],{type: "text/plain;charset=utf-8"});
         saveAs(blob, "file.txt");
     }
+    /**
+      * 将信源文件中每个符号出现的频次，等比例缩小，使缩小
+      * 后的频次取值在0～255之间。频次为零的保持不变，频次
+      * 不为零的等比例缩小不会为零。
+      *
+      * @returns {bool}  是否进行了等比缩小，true 缩小了，false 没有缩小
+      */
     function scaleFreq(){
         let f = 0,max = 0,scale = 0;
 
@@ -91,6 +132,11 @@ let huffman = (function(){
         printScaleFreq();
         return(scaled = true);
     }
+    /**
+      * 缩减后的信源文件分析——计算信源文件每个符号的概率
+      *
+      * @returns 无
+      */
     function scaledInfoSrcAnalyze(){
         let total = 0;
         for(let i = 0;i<SNUM_MAX;i++){
@@ -101,18 +147,34 @@ let huffman = (function(){
         }
         miniTFq = total;
     }
+    /**
+     * 压缩的初始化树
+     * 初始化huffman树，将每一个元素的频次都插入到huffman树的
+     * 数组当中。
+     */
     function initHfmTree(){
         for(let i = 0;i<SNUM_MAX;i++) hfmTree[i].w = miniFrq[i];
 
         hfmTree[HEAD].p = -1;
         hfmTree[HEAD].w = SNUM_MAX;
     }
+    /**
+     * 解压缩的初始化树
+     */
     function initHfmTree2(){
         for(let i = 0;i<SNUM_MAX;i++) hfmTree[i].w = freq[i];
 
         hfmTree[HEAD].p = -1;
         hfmTree[HEAD].w = SNUM_MAX;
     }
+    /**
+      * 利用信源符号缩减的原理，将Huffman树各个活动叶子节点
+      * 与缩减的中间节点连接成一棵二叉树。
+      *
+      * @param 无
+      *
+      * @returns 无
+      */
     function GenHfmTree(){
         let s1=0,s2=0,s3=0;
         while(Select(s1,s2).a!=0){
@@ -131,6 +193,16 @@ let huffman = (function(){
         }
         // console.log(hfmTree);
     }
+    /**
+      * 从 Huffman 树中选择权重最小的两个节点。条件是这两个节
+      * 点是活动节点，并且是孤立节点，可以是叶子节点也可以是
+      * 中间节点，最后权重需要满足下面的不等式：
+      *   weight(s1) <= weight(s2) <= weight(other node)。
+      *
+      * @param s1    第一个节点的下标
+      *        s2    第二个节点的下标
+      *
+      */
     function Select(s1,s2){
         let i;
         const num = hfmTree[HEAD].w;
@@ -158,6 +230,13 @@ let huffman = (function(){
             s2:s2
         };
     }
+    /**
+     * 利用Huffman树为每个信源符号生成相应的码字。每个信源
+	 * 符号都是Huffman树的活动叶子节点，从叶子节点向根节点
+	 * 行进路径就是分配码元符号，产生编码的过程。中间节点的
+	 * 左分支分配码元符号'1'，右分支分配码元符号'0'。码字的
+	 * 实际顺序与此过程正好相反，因此需要有一个反转的操作
+     */
     function GenHfmCode(){
         var i,pos;
         var code = new Array(SNUM_MAX);
@@ -187,8 +266,11 @@ let huffman = (function(){
         }
         PrintHfmCode();
     }
-    function WriteHfmFile(content)
-    {
+    /**
+     * 利用信源符号对应的码字，对信源文件重新编码，实现
+	 * 压缩。
+     */
+    function WriteHfmFile(content){
         var buf = 0x00;
         const mask = 0x80;
         var leng=0;
@@ -210,6 +292,12 @@ let huffman = (function(){
         var blob = new Blob([content],{type: "text/plain;charset=utf-8"});
         saveAs(blob, "file.txt");
     }
+    /**
+     * 写Huffman压缩文件的头信息，包括三部分：文件标识符、
+	 * FLAG和频次表。频次表的存储有两种方式，行程长度存储
+	 * 和连续存储。
+     * 
+     */
     function WriteHfmHeadFile(content){
         var secNum = 0;
         var flag = 0X00;
@@ -295,7 +383,6 @@ let huffman = (function(){
 	    {   
             // 保存行程段的起始位置
             var site = strFrq.length-p1.length;
-            console.log(site);
             content[i++] = site;
 			// 保存行程段的长度
             var pp=p1.length-p2.length;
@@ -370,9 +457,10 @@ let huffman = (function(){
         var text="";
         const mask=0X80;
         const LFour=0x0f;
-        var pos=hfmTree[HEAD].w-1;
-        var node=hfmTree[hfmTree[HEAD].w - 1];
         var len=data[3]&LFour;
+        console.log(len);
+        var pos=hfmTree[HEAD].w-1;
+        var node=hfmTree[hfmTree[HEAD].w - 1]
         for(;lth<data.length-1;){
             ch=data[lth++];
             for(let j=0;j<CHAR_BIT;j++){
@@ -399,14 +487,8 @@ let huffman = (function(){
                 text +=String.fromCharCode(pos);
                 node=hfmTree[hfmTree[HEAD].w - 1]
             }
-        }
-        // var txt=new Uint8Array(text.length);
-        // for(let i=0;i<text.length;i++){
-        //     txt[i]=text.charAt(i);
-        // }
-        // let utf8decoder = new TextDecoder();
-        // console.log(utf8decoder.decode(txt));
-        var blob = new Blob([utf8decoder.decode(text)],{type: "text/plain;charset=utf-8"});
+	    }
+        var blob = new Blob([text],{type: "text/plain;charset=utf-8"});
         saveAs(blob, "file.txt");
     }
 
@@ -508,9 +590,8 @@ let huffman = (function(){
 
 
     function compress(data,output){
+        console.log("压缩文件");
         $output = output;
-        // let encoder = new TextEncoder();
-        // let data= encoder.encode(data);
         initData(data);
         statFreq();
         infoSrcAnalyze();
@@ -531,7 +612,6 @@ let huffman = (function(){
         if(scaleFreq()){
             initHfmTree();
             GenHfmTree();
-            console.log(hfmTree);
             GenHfmCode();
             const len = HFM_FILE_TOKEN.length + 1 + srcData.length+256;
             var content = new Uint8Array(len);
@@ -546,6 +626,7 @@ let huffman = (function(){
             miniFrq=freq;
             WriteHfmFile(content);
         }  
+        console.log("压缩完成!");
     }
     function decompress(data,output){
         $output = output;
@@ -588,7 +669,6 @@ let huffman = (function(){
         GenHfmTree();
         GenHfmCode();
         DecodeFile(data,lth); 
-        
     }
     
 
